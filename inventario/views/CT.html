@@ -1,0 +1,916 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>CTI - Chromebook Test (Single Page)</title>
+  <style>
+    :root{
+      --bg:#0b1220; --panel:#0f1b2f; --card:rgba(255,255,255,.06);
+      --line:rgba(255,255,255,.10); --text:#eaf2ff; --muted:rgba(234,242,255,.70);
+      --ok:#22c55e; --bad:#ef4444; --warn:#f59e0b; --blue:#3b82f6;
+      --shadow:0 18px 40px rgba(0,0,0,.45);
+      --r:18px;
+      --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; font-family:var(--sans); color:var(--text);
+      background: radial-gradient(1100px 800px at 25% 0%, #1a2b52 0%, var(--bg) 60%);
+    }
+    .wrap{max-width:1280px;margin:0 auto;padding:14px}
+    .topbar{
+      display:flex;gap:12px;align-items:center;justify-content:space-between;
+      padding:14px 16px;border:1px solid var(--line); border-radius:var(--r);
+      background:rgba(15,27,47,.72); backdrop-filter: blur(10px); box-shadow:var(--shadow);
+      position:sticky;top:0;z-index:50;
+    }
+    .brand{display:flex;flex-direction:column;gap:2px}
+    .brand b{font-size:16px;letter-spacing:.2px}
+    .brand span{font-size:12px;color:var(--muted)}
+    .pill{
+      border:1px solid var(--line); border-radius:999px; padding:7px 12px;
+      background:rgba(255,255,255,.06); color:var(--muted); font-size:12px;
+      display:inline-flex; align-items:center; gap:8px;
+    }
+    .dot{width:9px;height:9px;border-radius:50%;background:rgba(255,255,255,.25)}
+    .dot.pass{background:var(--ok)}
+    .dot.fail{background:var(--bad)}
+    .dot.pending{background:var(--warn)}
+
+    .grid{
+      display:grid;
+      grid-template-columns: 360px 1fr;
+      gap:12px;
+      margin-top:12px;
+      align-items:start;
+    }
+    @media(max-width:1080px){ .grid{grid-template-columns:1fr} }
+
+    .card{
+      border:1px solid var(--line); border-radius:var(--r);
+      background:rgba(255,255,255,.05); box-shadow:var(--shadow); overflow:hidden;
+    }
+    .hd{padding:12px 14px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:10px}
+    .hd b{font-size:14px}
+    .bd{padding:12px 14px}
+    label{font-size:12px;color:var(--muted)}
+    input, textarea{
+      width:100%; padding:12px 12px; border-radius:14px; outline:none;
+      border:1px solid var(--line); background:rgba(0,0,0,.22); color:var(--text);
+      font-size:15px;
+    }
+    textarea{min-height:72px;resize:vertical}
+    .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+    .small{font-size:12px;color:var(--muted);line-height:1.35}
+
+    .btn{
+      border:1px solid var(--line); background:rgba(255,255,255,.08); color:var(--text);
+      padding:10px 12px; border-radius:16px; cursor:pointer; font-weight:800;
+      transition:.14s ease; user-select:none;
+    }
+    .btn:hover{transform: translateY(-1px); background:rgba(255,255,255,.12)}
+    .btn.primary{border-color:rgba(59,130,246,.45); background:rgba(59,130,246,.16)}
+    .btn.ok{border-color:rgba(34,197,94,.35); background:rgba(34,197,94,.14)}
+    .btn.bad{border-color:rgba(239,68,68,.35); background:rgba(239,68,68,.14)}
+    .btn.big{padding:14px 14px;border-radius:18px;font-size:15px}
+    .btn.w100{width:100%}
+
+    /* Sections on right */
+    .rightGrid{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:12px;
+    }
+    @media(max-width:1080px){ .rightGrid{grid-template-columns:1fr} }
+
+    /* Screen overlay */
+    .overlay{
+      position:fixed;inset:0;display:none;z-index:9999;background:#000;
+    }
+    .overlay .hud{
+      position:absolute;left:12px;top:12px;
+      display:flex;gap:10px;align-items:center;flex-wrap:wrap;
+      background:rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.15);
+      padding:10px 12px;border-radius:16px;color:rgba(255,255,255,.9);font-size:12px
+    }
+
+    /* Mic meter */
+    .meterWrap{margin-top:10px}
+    .meter{
+      width:100%;
+      height:16px;
+      border-radius:999px;
+      border:1px solid var(--line);
+      background:rgba(0,0,0,.25);
+      overflow:hidden;
+      position:relative;
+    }
+    .meter > .bar{
+      height:100%;
+      width:0%;
+      background: linear-gradient(90deg, rgba(34,197,94,.85), rgba(245,158,11,.85), rgba(239,68,68,.85));
+      transition: width .06s linear;
+    }
+    .meterTicks{
+      display:flex;justify-content:space-between;margin-top:6px;
+      font-size:11px;color:rgba(234,242,255,.55)
+    }
+
+    /* Camera */
+    video{width:100%;border-radius:16px;border:1px solid var(--line);background:#000}
+    img.snap{width:100%;border-radius:16px;border:1px solid var(--line);margin-top:10px}
+
+    /* Keyboard visual */
+    .kbdWrap{
+      background:rgba(0,0,0,.16);
+      border:1px solid var(--line);
+      border-radius:18px;
+      padding:12px;
+    }
+    .kbdTop{
+      display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px
+    }
+    .kbdHint{font-size:12px;color:var(--muted)}
+    .kbd{
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+      user-select:none;
+    }
+    .kbdRow{display:flex;gap:8px;flex-wrap:nowrap}
+    .key{
+      border:1px solid rgba(255,255,255,.18);
+      background: rgba(255,255,255,.06);
+      color: rgba(234,242,255,.92);
+      border-radius:12px;
+      padding:12px 10px;
+      font-weight:900;
+      font-size:13px;
+      text-align:center;
+      min-width:44px;
+      box-shadow: inset 0 -10px 22px rgba(0,0,0,.18);
+      transition: transform .06s ease, background .06s ease, border-color .06s ease;
+      position:relative;
+    }
+    .key.sm{min-width:52px}
+    .key.md{min-width:70px}
+    .key.lg{min-width:96px}
+    .key.xl{min-width:140px}
+    .key.space{flex:1; min-width:260px}
+    .key.active{
+      background: rgba(34,197,94,.22);
+      border-color: rgba(34,197,94,.55);
+      transform: translateY(-1px);
+      color:#d9ffe8;
+    }
+    .key.stuck{
+      background: rgba(245,158,11,.22);
+      border-color: rgba(245,158,11,.55);
+      color:#fff2d8;
+    }
+    .key .code{
+      position:absolute;bottom:6px;right:8px;
+      font-size:10px;color:rgba(234,242,255,.55);font-weight:800
+    }
+    .kbdLog{
+      margin-top:10px;
+      font-family:var(--mono);
+      font-size:12px;
+      padding:10px;
+      border-radius:14px;
+      border:1px dashed var(--line);
+      background:rgba(0,0,0,.20);
+      max-height:120px;
+      overflow:auto;
+      white-space:pre-wrap;
+    }
+
+    /* Label */
+    .labelArea{
+      background:rgba(0,0,0,.16);
+      border:1px solid var(--line);
+      border-radius:18px;
+      padding:12px;
+    }
+    .labelPreviewWrap{display:flex;justify-content:center;padding:10px;background:rgba(0,0,0,.12);border-radius:16px;border:1px solid rgba(255,255,255,.08)}
+    .label{
+      width:3.5in;height:1.1in;background:#fff;color:#000;
+      padding:.08in; border-radius:10px; box-sizing:border-box;
+      display:grid; grid-template-columns: 1.05in 1fr; gap:.08in; align-items:center;
+    }
+    .qr{width:1.0in;height:1.0in;border:1px solid #000;display:flex;align-items:center;justify-content:center;overflow:hidden;}
+    .lin1{font-weight:900;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .lin2{font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .lin3{font-size:10px;color:#111}
+    @page { size: 3.5in 1.1in; margin: 0; }
+    @media print{
+      body{background:#fff}
+      .topbar,.grid{display:none !important}
+      #printOnly{display:block !important}
+    }
+    #printOnly{display:none}
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <div class="brand">
+        <b>CTI Chromebook Test</b>
+        <span>Single page · Operator-friendly · Screen / Audio / Mic / Cam / Keyboard / Label</span>
+      </div>
+      <div class="row">
+        <span class="pill" id="clock"></span>
+        <span class="pill" id="overallPill"><span class="dot pending" id="overallDot"></span>Overall: PENDING</span>
+        <button class="btn primary" id="btnSave">SAVE (local)</button>
+      </div>
+    </div>
+
+    <div class="grid">
+      <!-- LEFT: Intake + PASS/FAIL quick marks -->
+      <div class="card">
+        <div class="hd"><b>Entrada</b><span class="pill" id="devicePill">No serial</span></div>
+        <div class="bd">
+          <div class="two">
+            <div>
+              <label>Serial (scanner)</label>
+              <input id="serial" placeholder="Scan here..." autocomplete="off" />
+            </div>
+            <div>
+              <label>Técnico</label>
+              <input id="tech" placeholder="Name" autocomplete="off" />
+            </div>
+          </div>
+          <div style="height:10px"></div>
+          <div class="two">
+            <div>
+              <label>Modelo (opcional)</label>
+              <input id="model" placeholder="Chromebook model" autocomplete="off" />
+            </div>
+            <div>
+              <label>Notas (opcional)</label>
+              <input id="notes" placeholder="Quick note..." autocomplete="off" />
+            </div>
+          </div>
+
+          <div style="height:14px"></div>
+
+          <div class="card" style="box-shadow:none;background:rgba(0,0,0,.12)">
+            <div class="hd"><b>Checklist PASS/FAIL</b><span class="small">Marca rápido</span></div>
+            <div class="bd" style="display:grid;gap:10px">
+              <div class="row" style="justify-content:space-between">
+                <span class="pill"><span class="dot pending" id="dot_screen"></span>Screen</span>
+                <div class="row">
+                  <button class="btn ok" onclick="setStatus('screen','pass')">PASS</button>
+                  <button class="btn bad" onclick="setStatus('screen','fail')">FAIL</button>
+                </div>
+              </div>
+              <div class="row" style="justify-content:space-between">
+                <span class="pill"><span class="dot pending" id="dot_audio"></span>Audio</span>
+                <div class="row">
+                  <button class="btn ok" onclick="setStatus('audio','pass')">PASS</button>
+                  <button class="btn bad" onclick="setStatus('audio','fail')">FAIL</button>
+                </div>
+              </div>
+              <div class="row" style="justify-content:space-between">
+                <span class="pill"><span class="dot pending" id="dot_mic"></span>Mic</span>
+                <div class="row">
+                  <button class="btn ok" onclick="setStatus('mic','pass')">PASS</button>
+                  <button class="btn bad" onclick="setStatus('mic','fail')">FAIL</button>
+                </div>
+              </div>
+              <div class="row" style="justify-content:space-between">
+                <span class="pill"><span class="dot pending" id="dot_cam"></span>Camera</span>
+                <div class="row">
+                  <button class="btn ok" onclick="setStatus('cam','pass')">PASS</button>
+                  <button class="btn bad" onclick="setStatus('cam','fail')">FAIL</button>
+                </div>
+              </div>
+              <div class="row" style="justify-content:space-between">
+                <span class="pill"><span class="dot pending" id="dot_kbd"></span>Keyboard</span>
+                <div class="row">
+                  <button class="btn ok" onclick="setStatus('kbd','pass')">PASS</button>
+                  <button class="btn bad" onclick="setStatus('kbd','fail')">FAIL</button>
+                </div>
+              </div>
+
+              <button class="btn big primary w100" id="btnPrint">PRINT LABEL</button>
+              <div class="small">Imprime 3.5" x 1.1" a 100% escala.</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- RIGHT: Everything visible on same page -->
+      <div class="rightGrid">
+
+        <!-- Screen -->
+        <div class="card">
+          <div class="hd"><b>Screen</b><span class="pill">Fullscreen tests</span></div>
+          <div class="bd">
+            <div class="row">
+              <button class="btn big" onclick="openOverlay('#000')">BLACK</button>
+              <button class="btn big" onclick="openOverlay('#fff')">WHITE</button>
+              <button class="btn big" onclick="openOverlay('#f00')">RED</button>
+              <button class="btn big" onclick="openOverlay('#0f0')">GREEN</button>
+              <button class="btn big" onclick="openOverlay('#00f')">BLUE</button>
+              <button class="btn big" onclick="openOverlay('#000','checker')">CHECKER</button>
+              <button class="btn big" onclick="openOverlay('#000','gradient')">GRADIENT</button>
+            </div>
+            <div class="small" style="margin-top:8px">ESC para salir del fullscreen.</div>
+          </div>
+        </div>
+
+        <!-- Audio -->
+        <div class="card">
+          <div class="hd"><b>Audio</b><span class="pill">Output tone</span></div>
+          <div class="bd">
+            <div class="row">
+              <button class="btn big primary" id="aPlay">PLAY 440Hz</button>
+              <button class="btn big" id="aStop">STOP</button>
+              <button class="btn big" id="aSweep">SWEEP 200→2k</button>
+            </div>
+            <div class="small" style="margin-top:8px">Si no suena, sube el volumen del sistema.</div>
+          </div>
+        </div>
+
+        <!-- Mic -->
+        <div class="card">
+          <div class="hd"><b>Mic</b><span class="pill" id="micState">Idle</span></div>
+          <div class="bd">
+            <div class="row">
+              <button class="btn big primary" id="mStart">START MIC</button>
+              <button class="btn big" id="mStop">STOP</button>
+              <span class="pill">Level: <span id="micDb">—</span></span>
+            </div>
+
+            <div class="meterWrap">
+              <div class="meter"><div class="bar" id="micBar"></div></div>
+              <div class="meterTicks"><span>0%</span><span>50%</span><span>100%</span></div>
+            </div>
+
+            <div class="small" style="margin-top:8px">
+              Debe moverse la barra al hablar. Si se queda en 0%, permiso bloqueado o mic dañado.
+            </div>
+          </div>
+        </div>
+
+        <!-- Camera -->
+        <div class="card">
+          <div class="hd"><b>Camera</b><span class="pill" id="camState">Idle</span></div>
+          <div class="bd">
+            <div class="row">
+              <button class="btn big primary" id="cStart">START CAMERA</button>
+              <button class="btn big" id="cStop">STOP</button>
+              <button class="btn big" id="cSnap">SNAPSHOT</button>
+            </div>
+            <div style="height:10px"></div>
+            <video id="camVideo" autoplay playsinline></video>
+            <img id="snapImg" class="snap" style="display:none" alt="snapshot" />
+            <canvas id="snapCanvas" style="display:none"></canvas>
+            <div class="small" style="margin-top:8px">Si ves preview, la cámara está OK.</div>
+          </div>
+        </div>
+
+        <!-- Keyboard (visual like your screenshot) -->
+        <div class="card" style="grid-column:1 / -1">
+          <div class="hd"><b>Keyboard</b><span class="pill">Visual layout + highlight</span></div>
+          <div class="bd">
+            <div class="kbdWrap">
+              <div class="kbdTop">
+                <span class="pill">Click aquí y escribe: <b>en esta página</b></span>
+                <span class="kbdHint">Las teclas presionadas se iluminan. Si una queda pegada, se marca en amarillo.</span>
+                <button class="btn" id="kbdClear">Clear log</button>
+              </div>
+
+              <div class="kbd" id="kbdUI"></div>
+              <div class="kbdLog" id="kbdLog">Key log…</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Label preview -->
+        <div class="card" style="grid-column:1 / -1">
+          <div class="hd"><b>Label</b><span class="pill">3.5" x 1.1"</span></div>
+          <div class="bd">
+            <div class="labelArea">
+              <div class="labelPreviewWrap">
+                <div class="label" id="labelBox">
+                  <div class="qr" id="qrBox"></div>
+                  <div>
+                    <div class="lin1" id="lbSerial">NO-SERIAL</div>
+                    <div class="lin2" id="lbModel">Model: —</div>
+                    <div class="lin2" id="lbTech">Tech: —</div>
+                    <div class="lin2" id="lbOverall">Overall: PENDING</div>
+                    <div class="lin3" id="lbDate">—</div>
+                  </div>
+                </div>
+              </div>
+              <div class="row" style="margin-top:10px">
+                <button class="btn primary" id="btnRefreshLabel">Refresh label</button>
+                <button class="btn" id="btnPrint2">Print</button>
+              </div>
+              <div class="small" style="margin-top:6px">
+                Nota: este QR es “pattern” (MVP). Si quieres QR real escaneable por cualquier app, lo cambiamos.
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- fullscreen overlay -->
+  <div class="overlay" id="overlay">
+    <div class="hud">
+      <b>Screen Test</b>
+      <span>ESC para salir</span>
+      <button class="btn" onclick="openOverlay('#000')">Black</button>
+      <button class="btn" onclick="openOverlay('#fff')">White</button>
+      <button class="btn" onclick="openOverlay('#f00')">Red</button>
+      <button class="btn" onclick="openOverlay('#0f0')">Green</button>
+      <button class="btn" onclick="openOverlay('#00f')">Blue</button>
+      <button class="btn" onclick="openOverlay('#000','checker')">Checker</button>
+      <button class="btn" onclick="openOverlay('#000','gradient')">Gradient</button>
+    </div>
+  </div>
+
+  <!-- Print-only label -->
+  <div id="printOnly"></div>
+
+<script>
+  // ---------------------------
+  // Clock
+  // ---------------------------
+  const clock = document.getElementById('clock');
+  setInterval(()=> clock.textContent = new Date().toLocaleString(), 250);
+
+  // ---------------------------
+  // Global state
+  // ---------------------------
+  const status = { screen:'pending', audio:'pending', mic:'pending', cam:'pending', kbd:'pending' };
+
+  function dotFor(val){
+    if(val==='pass') return 'pass';
+    if(val==='fail') return 'fail';
+    return 'pending';
+  }
+
+  function setStatus(key, val){
+    status[key] = val;
+    const dot = document.getElementById(`dot_${key}`);
+    if(dot){
+      dot.classList.remove('pass','fail','pending');
+      dot.classList.add(dotFor(val));
+    }
+    refreshOverall();
+    refreshLabel();
+  }
+
+  function refreshOverall(){
+    const vals = Object.values(status);
+    let overall = 'PENDING';
+    if(vals.every(v=>v==='pass')) overall = 'PASS';
+    else if(vals.some(v=>v==='fail')) overall = 'FAIL';
+
+    const overallPill = document.getElementById('overallPill');
+    const overallDot  = document.getElementById('overallDot');
+    overallPill.lastChild && (overallPill.lastChild.textContent = '');
+    overallPill.innerHTML = `<span class="dot ${overall==='PASS'?'pass':(overall==='FAIL'?'fail':'pending')}" id="overallDot"></span>Overall: ${overall}`;
+  }
+
+  // ---------------------------
+  // Inputs
+  // ---------------------------
+  const serialEl = document.getElementById('serial');
+  const techEl   = document.getElementById('tech');
+  const modelEl  = document.getElementById('model');
+  const notesEl  = document.getElementById('notes');
+  const devicePill = document.getElementById('devicePill');
+
+  function syncInput(){
+    const s = serialEl.value.trim();
+    devicePill.textContent = s ? `Serial: ${s}` : 'No serial';
+    refreshLabel();
+  }
+  [serialEl, techEl, modelEl, notesEl].forEach(el=> el.addEventListener('input', syncInput));
+
+  // ---------------------------
+  // Screen overlay
+  // ---------------------------
+  const overlay = document.getElementById('overlay');
+  function openOverlay(bg, mode){
+    overlay.style.display = 'block';
+    overlay.style.background = bg;
+    if(mode==='checker') overlay.style.background = 'repeating-linear-gradient(45deg, #000 0 22px, #fff 22px 44px)';
+    if(mode==='gradient') overlay.style.background = 'linear-gradient(90deg, #000, #fff)';
+    overlay.requestFullscreen?.().catch(()=>{});
+  }
+  function closeOverlay(){
+    document.fullscreenElement && document.exitFullscreen?.();
+    overlay.style.display = 'none';
+    overlay.style.background = '#000';
+  }
+  document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeOverlay(); });
+
+  // expose setStatus/openOverlay to inline buttons
+  window.setStatus = setStatus;
+  window.openOverlay = openOverlay;
+
+  // ---------------------------
+  // Audio test
+  // ---------------------------
+  let audioCtx=null, osc=null, gain=null, sweepTimer=null;
+  function ensureAudio(){ if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)(); }
+  function stopTone(){
+    if(sweepTimer){clearInterval(sweepTimer);sweepTimer=null;}
+    if(osc){osc.stop();osc.disconnect();osc=null;}
+    if(gain){gain.disconnect();gain=null;}
+  }
+  function playTone(freq, vol){
+    stopTone(); ensureAudio();
+    gain = audioCtx.createGain(); gain.gain.value = vol;
+    osc = audioCtx.createOscillator(); osc.type='sine'; osc.frequency.value=freq;
+    osc.connect(gain); gain.connect(audioCtx.destination); osc.start();
+  }
+  function sweep(){
+    stopTone(); ensureAudio();
+    gain = audioCtx.createGain(); gain.gain.value = 0.28;
+    osc = audioCtx.createOscillator(); osc.type='sine'; osc.frequency.value=200;
+    osc.connect(gain); gain.connect(audioCtx.destination); osc.start();
+    let f=200;
+    sweepTimer=setInterval(()=>{ f+=40; osc.frequency.value=f; if(f>=2000) stopTone(); }, 40);
+  }
+  document.getElementById('aPlay').onclick=()=>playTone(440,0.28);
+  document.getElementById('aStop').onclick=()=>stopTone();
+  document.getElementById('aSweep').onclick=()=>sweep();
+
+  // ---------------------------
+  // Mic meter (FIXED to always show movement when working)
+  // ---------------------------
+  let micStream=null, micCtx=null, micAnalyser=null, micSrc=null, micRAF=null;
+  const micBar = document.getElementById('micBar');
+  const micDb  = document.getElementById('micDb');
+  const micState = document.getElementById('micState');
+
+  function stopMic(){
+    if(micRAF) cancelAnimationFrame(micRAF);
+    micRAF=null;
+    micBar.style.width='0%';
+    micDb.textContent='—';
+    if(micStream){ micStream.getTracks().forEach(t=>t.stop()); micStream=null; }
+    if(micCtx){ micCtx.close?.(); micCtx=null; }
+    micState.textContent='Idle';
+  }
+
+  // Rough dB estimate (not calibrated): based on RMS of time-domain signal
+  function rmsToDb(rms){
+    // prevent log(0)
+    const v = Math.max(rms, 1e-8);
+    return 20 * Math.log10(v);
+  }
+
+  async function startMic(){
+    stopMic();
+    try{
+      micStream = await navigator.mediaDevices.getUserMedia({audio:true});
+      micCtx = new (window.AudioContext||window.webkitAudioContext)();
+      micAnalyser = micCtx.createAnalyser();
+      micAnalyser.fftSize = 512;
+      micSrc = micCtx.createMediaStreamSource(micStream);
+      micSrc.connect(micAnalyser);
+
+      const data = new Float32Array(micAnalyser.fftSize);
+      micState.textContent='Running';
+
+      function tick(){
+        micAnalyser.getFloatTimeDomainData(data);
+
+        // RMS
+        let sum=0;
+        for(let i=0;i<data.length;i++){
+          const x = data[i];
+          sum += x*x;
+        }
+        const rms = Math.sqrt(sum / data.length); // 0..1 roughly
+        const db = rmsToDb(rms); // negative values typically
+        micDb.textContent = `${db.toFixed(1)} dB`;
+
+        // Convert rms to 0..100 meter (tuned for speech)
+        // Speech rms often ~0.01..0.2 depending on gain
+        let level = (rms * 420); // tune
+        level = Math.max(0, Math.min(100, level));
+        micBar.style.width = level.toFixed(0) + '%';
+
+        micRAF = requestAnimationFrame(tick);
+      }
+      tick();
+    }catch(e){
+      micState.textContent='Blocked';
+      micDb.textContent='Permission denied';
+      micBar.style.width='0%';
+    }
+  }
+
+  document.getElementById('mStart').onclick=startMic;
+  document.getElementById('mStop').onclick=stopMic;
+
+  // ---------------------------
+  // Camera
+  // ---------------------------
+  let camStream=null;
+  const camVideo=document.getElementById('camVideo');
+  const camState=document.getElementById('camState');
+  const snapCanvas=document.getElementById('snapCanvas');
+  const snapImg=document.getElementById('snapImg');
+
+  async function startCam(){
+    stopCam();
+    try{
+      camStream = await navigator.mediaDevices.getUserMedia({video:true, audio:false});
+      camVideo.srcObject = camStream;
+      camState.textContent='Running';
+    }catch(e){
+      camState.textContent='Blocked / No camera';
+    }
+  }
+  function stopCam(){
+    if(camStream){camStream.getTracks().forEach(t=>t.stop()); camStream=null;}
+    camVideo.srcObject = null;
+    camState.textContent='Idle';
+  }
+  document.getElementById('cStart').onclick=startCam;
+  document.getElementById('cStop').onclick=stopCam;
+
+  document.getElementById('cSnap').onclick=()=>{
+    if(!camVideo.videoWidth) return;
+    snapCanvas.width = camVideo.videoWidth;
+    snapCanvas.height = camVideo.videoHeight;
+    const ctx = snapCanvas.getContext('2d');
+    ctx.drawImage(camVideo,0,0);
+    snapImg.src = snapCanvas.toDataURL('image/png');
+    snapImg.style.display='block';
+  };
+
+  // ---------------------------
+  // Keyboard visual layout (highlights pressed keys like your screenshot)
+  // ---------------------------
+  const kbdUI = document.getElementById('kbdUI');
+  const kbdLog = document.getElementById('kbdLog');
+  const activeDown = new Set(); // codes currently pressed
+
+  // Basic ANSI-ish layout (enough for Chromebooks). You can tweak sizes easily.
+  const layout = [
+    // Row 1
+    [
+      {code:'Escape', label:'Esc', w:'sm'},
+      {code:'F1', label:'F1'},{code:'F2', label:'F2'},{code:'F3', label:'F3'},{code:'F4', label:'F4'},
+      {code:'F5', label:'F5'},{code:'F6', label:'F6'},{code:'F7', label:'F7'},{code:'F8', label:'F8'},
+      {code:'F9', label:'F9'},{code:'F10', label:'F10'},{code:'F11', label:'F11'},{code:'F12', label:'F12'}
+    ],
+    // Row 2
+    [
+      {code:'Backquote', label:'` ~', w:'sm'},
+      {code:'Digit1', label:'1'},{code:'Digit2', label:'2'},{code:'Digit3', label:'3'},{code:'Digit4', label:'4'},
+      {code:'Digit5', label:'5'},{code:'Digit6', label:'6'},{code:'Digit7', label:'7'},{code:'Digit8', label:'8'},
+      {code:'Digit9', label:'9'},{code:'Digit0', label:'0'},
+      {code:'Minus', label:'- _'},{code:'Equal', label:'= +'},
+      {code:'Backspace', label:'Backspace', w:'lg'}
+    ],
+    // Row 3
+    [
+      {code:'Tab', label:'Tab', w:'md'},
+      {code:'KeyQ', label:'Q'},{code:'KeyW', label:'W'},{code:'KeyE', label:'E'},{code:'KeyR', label:'R'},{code:'KeyT', label:'T'},
+      {code:'KeyY', label:'Y'},{code:'KeyU', label:'U'},{code:'KeyI', label:'I'},{code:'KeyO', label:'O'},{code:'KeyP', label:'P'},
+      {code:'BracketLeft', label:'[ {'},{code:'BracketRight', label:'] }'},{code:'Backslash', label:'\\ |', w:'md'}
+    ],
+    // Row 4
+    [
+      {code:'CapsLock', label:'Caps', w:'lg'},
+      {code:'KeyA', label:'A'},{code:'KeyS', label:'S'},{code:'KeyD', label:'D'},{code:'KeyF', label:'F'},
+      {code:'KeyG', label:'G'},{code:'KeyH', label:'H'},{code:'KeyJ', label:'J'},{code:'KeyK', label:'K'},{code:'KeyL', label:'L'},
+      {code:'Semicolon', label:'; :'},{code:'Quote', label:"' \""},
+      {code:'Enter', label:'Enter', w:'xl'}
+    ],
+    // Row 5
+    [
+      {code:'ShiftLeft', label:'Shift', w:'xl'},
+      {code:'KeyZ', label:'Z'},{code:'KeyX', label:'X'},{code:'KeyC', label:'C'},{code:'KeyV', label:'V'},
+      {code:'KeyB', label:'B'},{code:'KeyN', label:'N'},{code:'KeyM', label:'M'},
+      {code:'Comma', label:', <'},{code:'Period', label:'. >'},{code:'Slash', label:'/ ?'},
+      {code:'ShiftRight', label:'Shift', w:'xl'}
+    ],
+    // Row 6
+    [
+      {code:'ControlLeft', label:'Ctrl', w:'md'},
+      {code:'MetaLeft', label:'Win', w:'md'},
+      {code:'AltLeft', label:'Alt', w:'md'},
+      {code:'Space', label:'Space', w:'space'},
+      {code:'AltRight', label:'Alt', w:'md'},
+      {code:'ControlRight', label:'Ctrl', w:'md'},
+      {code:'ArrowLeft', label:'◀', w:'sm'},
+      {code:'ArrowDown', label:'▼', w:'sm'},
+      {code:'ArrowRight', label:'▶', w:'sm'}
+    ]
+  ];
+
+  const keyEls = new Map(); // code -> element
+
+  function makeKey(k){
+    const el = document.createElement('div');
+    el.className = 'key' + (k.w ? ` ${k.w}` : '');
+    el.dataset.code = k.code;
+    el.innerHTML = `<div>${k.label}</div><div class="code">${k.code}</div>`;
+    keyEls.set(k.code, el);
+    return el;
+  }
+
+  function renderKeyboard(){
+    kbdUI.innerHTML = '';
+    layout.forEach(row=>{
+      const r = document.createElement('div');
+      r.className = 'kbdRow';
+      row.forEach(k=> r.appendChild(makeKey(k)));
+      kbdUI.appendChild(r);
+    });
+  }
+
+  function logLine(line){
+    if(kbdLog.textContent === 'Key log…') kbdLog.textContent = '';
+    kbdLog.textContent += line + '\n';
+    kbdLog.scrollTop = kbdLog.scrollHeight;
+  }
+
+  // Mark stuck keys if no keyup after a bit (helpful for ops)
+  const stuckTimers = new Map();
+  function startStuckTimer(code){
+    clearStuckTimer(code);
+    const t = setTimeout(()=>{
+      const el = keyEls.get(code);
+      if(el && activeDown.has(code)){
+        el.classList.add('stuck');
+      }
+    }, 900); // 0.9s holding shows "stuck-ish"
+    stuckTimers.set(code, t);
+  }
+  function clearStuckTimer(code){
+    const t = stuckTimers.get(code);
+    if(t) clearTimeout(t);
+    stuckTimers.delete(code);
+  }
+
+  document.addEventListener('keydown', (e)=>{
+    // avoid auto-repeat flooding log
+    if(e.repeat) return;
+
+    activeDown.add(e.code);
+    const el = keyEls.get(e.code);
+    if(el){
+      el.classList.add('active');
+      el.classList.remove('stuck');
+    }
+    startStuckTimer(e.code);
+    logLine(`[down] ${e.key} | ${e.code}`);
+  });
+
+  document.addEventListener('keyup', (e)=>{
+    activeDown.delete(e.code);
+    clearStuckTimer(e.code);
+    const el = keyEls.get(e.code);
+    if(el){
+      el.classList.remove('active');
+      el.classList.remove('stuck');
+    }
+    logLine(`[up]   ${e.key} | ${e.code}`);
+  });
+
+  document.getElementById('kbdClear').onclick=()=>{
+    kbdLog.textContent='Key log…';
+    // clear visuals
+    keyEls.forEach(el=> el.classList.remove('active','stuck'));
+    activeDown.clear();
+    // if they want, you can also auto set PASS here
+  };
+
+  renderKeyboard();
+
+  // ---------------------------
+  // Label (preview + print)
+  // ---------------------------
+  const lbSerial = document.getElementById('lbSerial');
+  const lbModel  = document.getElementById('lbModel');
+  const lbTech   = document.getElementById('lbTech');
+  const lbOverall= document.getElementById('lbOverall');
+  const lbDate   = document.getElementById('lbDate');
+  const qrBox    = document.getElementById('qrBox');
+
+  function fakeQR(text){
+    const s=29, cell=3;
+    const c=document.createElement('canvas');
+    c.width=s*cell; c.height=s*cell;
+    const ctx=c.getContext('2d');
+    ctx.fillStyle='#fff'; ctx.fillRect(0,0,c.width,c.height);
+    let seed=0; for(let i=0;i<text.length;i++) seed=(seed*31+text.charCodeAt(i))>>>0;
+    function rnd(){ seed=(seed*1664525+1013904223)>>>0; return seed/4294967296; }
+    function finder(x,y){
+      ctx.fillStyle='#000'; ctx.fillRect(x*cell,y*cell,7*cell,7*cell);
+      ctx.fillStyle='#fff'; ctx.fillRect((x+1)*cell,(y+1)*cell,5*cell,5*cell);
+      ctx.fillStyle='#000'; ctx.fillRect((x+2)*cell,(y+2)*cell,3*cell,3*cell);
+    }
+    finder(1,1); finder(s-8,1); finder(1,s-8);
+    for(let y=0;y<s;y++){
+      for(let x=0;x<s;x++){
+        const inF =
+          (x>=1&&x<=7&&y>=1&&y<=7) ||
+          (x>=s-8&&x<=s-2&&y>=1&&y<=7) ||
+          (x>=1&&x<=7&&y>=s-8&&y<=s-2);
+        if(inF) continue;
+        if(rnd()>0.62){ ctx.fillStyle='#000'; ctx.fillRect(x*cell,y*cell,cell,cell); }
+      }
+    }
+    return c;
+  }
+
+  function currentOverall(){
+    const vals = Object.values(status);
+    if(vals.every(v=>v==='pass')) return 'PASS';
+    if(vals.some(v=>v==='fail')) return 'FAIL';
+    return 'PENDING';
+  }
+
+  function refreshLabel(){
+    const serial = serialEl.value.trim() || 'NO-SERIAL';
+    const model  = modelEl.value.trim() || '—';
+    const tech   = techEl.value.trim() || '—';
+    const overall= currentOverall();
+    lbSerial.textContent = serial;
+    lbModel.textContent  = 'Model: ' + model;
+    lbTech.textContent   = 'Tech: ' + tech;
+    lbOverall.textContent= 'Overall: ' + overall;
+    lbDate.textContent   = new Date().toLocaleString();
+
+    qrBox.innerHTML = '';
+    const payload = `SERIAL=${serial}|MODEL=${model}|OVERALL=${overall}|TECH=${tech}`;
+    qrBox.appendChild(fakeQR(payload));
+  }
+
+  document.getElementById('btnRefreshLabel').onclick=refreshLabel;
+
+  function printLabelOnly(){
+    refreshLabel();
+    const serial = serialEl.value.trim() || 'NO-SERIAL';
+    const model  = modelEl.value.trim() || '—';
+    const tech   = techEl.value.trim() || '—';
+    const overall= currentOverall();
+    const payload = `SERIAL=${serial}|MODEL=${model}|OVERALL=${overall}|TECH=${tech}`;
+
+    const printOnly = document.getElementById('printOnly');
+    printOnly.innerHTML = `
+      <div class="label">
+        <div class="qr" id="pqr"></div>
+        <div>
+          <div class="lin1">${serial}</div>
+          <div class="lin2">Model: ${model}</div>
+          <div class="lin2">Tech: ${tech}</div>
+          <div class="lin2">Overall: ${overall}</div>
+          <div class="lin3">${new Date().toLocaleString()}</div>
+        </div>
+      </div>
+    `;
+    const pqr = printOnly.querySelector('#pqr');
+    pqr.appendChild(fakeQR(payload));
+    window.print();
+  }
+
+  document.getElementById('btnPrint').onclick=printLabelOnly;
+  document.getElementById('btnPrint2').onclick=printLabelOnly;
+
+  // ---------------------------
+  // Save local
+  // ---------------------------
+  document.getElementById('btnSave').onclick=()=>{
+    refreshOverall();
+    const pack = {
+      serial: serialEl.value.trim(),
+      tech: techEl.value.trim(),
+      model: modelEl.value.trim(),
+      notes: notesEl.value.trim(),
+      status: {...status},
+      ts: new Date().toISOString()
+    };
+    localStorage.setItem('cti_cb_singlepage', JSON.stringify(pack));
+    alert('Guardado localmente (MVP).');
+  };
+
+  // Init
+  refreshOverall();
+  refreshLabel();
+  syncInput();
+</script>
+</body>
+</html>
